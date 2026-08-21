@@ -3,8 +3,8 @@ import React from 'react'
 import './styles.css'
 
 export const metadata: Metadata = {
-  title: 'Agent CMS',
-  description: 'Telegram AI agents admin',
+  title: 'Диалоги — помощники в Telegram',
+  description: 'Простой кабинет: подключите номер, сценарий и начните переписку с клиентами',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

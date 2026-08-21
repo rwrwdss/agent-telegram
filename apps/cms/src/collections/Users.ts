@@ -2,6 +2,10 @@ import type { CollectionConfig } from 'payload'
 
 export const Users: CollectionConfig = {
   slug: 'users',
+  labels: {
+    singular: 'Сотрудник',
+    plural: 'Сотрудники',
+  },
   auth: {
     cookies: {
       sameSite: 'Lax',
@@ -10,6 +14,9 @@ export const Users: CollectionConfig = {
   },
   admin: {
     useAsTitle: 'email',
+    group: 'Настройки',
+    description: 'Люди, которые заходят в кабинет: владелец, менеджер или оператор.',
+    defaultColumns: ['email', 'role', 'tenant', 'updatedAt'],
   },
   access: {
     read: ({ req: { user } }) => {
@@ -17,10 +24,15 @@ export const Users: CollectionConfig = {
       if (user.role === 'superadmin') return true
       return { tenant: { equals: user.tenant } }
     },
-    // Allow unauthenticated create so /admin/create-first-user works on empty DB
-    create: ({ req: { user } }) => {
-      if (!user) return true
-      return user.role === 'superadmin' || user.role === 'admin'
+    create: async ({ req }) => {
+      if (req.user) return req.user.role === 'superadmin' || req.user.role === 'admin'
+      // Первый пользователь платформы (пустая база)
+      const existing = await req.payload.find({
+        collection: 'users',
+        limit: 0,
+        overrideAccess: true,
+      })
+      return existing.totalDocs === 0
     },
     update: ({ req: { user } }) => {
       if (!user) return false
@@ -34,20 +46,26 @@ export const Users: CollectionConfig = {
       name: 'role',
       type: 'select',
       required: true,
+      label: 'Роль',
       defaultValue: 'admin',
       options: [
-        { label: 'Superadmin', value: 'superadmin' },
-        { label: 'Admin', value: 'admin' },
-        { label: 'Operator', value: 'operator' },
+        { label: 'Владелец платформы', value: 'superadmin' },
+        { label: 'Владелец компании', value: 'admin' },
+        { label: 'Оператор (отвечает вручную)', value: 'operator' },
       ],
+      admin: {
+        description: 'Владелец компании настраивает всё. Оператор только ведёт переписку.',
+      },
     },
     {
       name: 'tenant',
       type: 'relationship',
       relationTo: 'tenants',
+      label: 'Компания',
       required: false,
       admin: {
         condition: (_, siblingData) => siblingData?.role !== 'superadmin',
+        description: 'К какой компании относится сотрудник',
       },
     },
   ],

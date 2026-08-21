@@ -2,8 +2,15 @@ import type { CollectionConfig } from 'payload'
 
 export const Tenants: CollectionConfig = {
   slug: 'tenants',
+  labels: {
+    singular: 'Компания',
+    plural: 'Компании',
+  },
   admin: {
     useAsTitle: 'name',
+    group: 'Настройки',
+    description: 'Ваш бизнес-аккаунт. Все сотрудники и переписки принадлежат компании.',
+    defaultColumns: ['name', 'plan', 'updatedAt'],
   },
   access: {
     read: ({ req: { user } }) => {
@@ -47,21 +54,32 @@ export const Tenants: CollectionConfig = {
     ],
   },
   fields: [
-    { name: 'name', type: 'text', required: true },
+    {
+      name: 'name',
+      type: 'text',
+      required: true,
+      label: 'Название компании',
+      admin: { description: 'Как компания будет отображаться в системе' },
+    },
     {
       name: 'plan',
       type: 'select',
+      label: 'Тариф',
       defaultValue: 'starter',
       options: [
-        { label: 'Starter', value: 'starter' },
-        { label: 'Pro', value: 'pro' },
-        { label: 'Enterprise', value: 'enterprise' },
+        { label: 'Старт', value: 'starter' },
+        { label: 'Бизнес', value: 'pro' },
+        { label: 'Крупный бизнес', value: 'enterprise' },
       ],
     },
     {
       name: 'limits',
       type: 'json',
+      label: 'Лимиты',
       defaultValue: { maxAgents: 5, maxAccounts: 3 },
+      admin: {
+        description: 'Ограничения: сколько помощников и Telegram-аккаунтов можно подключить',
+      },
     },
   ],
 }

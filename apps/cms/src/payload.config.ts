@@ -2,6 +2,7 @@ import path from 'path'
 import { fileURLToPath } from 'url'
 import { postgresAdapter } from '@payloadcms/db-postgres'
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import { ru } from '@payloadcms/translations/languages/ru'
 import { buildConfig } from 'payload'
 import sharp from 'sharp'
 
@@ -20,8 +21,16 @@ const serverURL = process.env.NEXT_PUBLIC_SERVER_URL || process.env.PAYLOAD_PUBL
 
 export default buildConfig({
   serverURL,
+  i18n: {
+    supportedLanguages: { ru },
+    fallbackLanguage: 'ru',
+  },
   admin: {
     user: Users.slug,
+    meta: {
+      titleSuffix: '— Диалоги',
+      description: 'Кабинет для переписки с клиентами в Telegram',
+    },
     importMap: {
       baseDir: path.resolve(dirname),
     },

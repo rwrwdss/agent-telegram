@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 
 type Conversation = {
   id: string
@@ -20,8 +20,14 @@ type Message = {
   created_at: string
 }
 
+const stateLabel: Record<string, string> = {
+  bot: 'Помощник',
+  handoff_human: 'У оператора',
+  closed: 'Закрыт',
+}
+
 export default function LiveDialogsPage() {
-  const [tenantId, setTenantId] = useState('')
+  const [companyId, setCompanyId] = useState('')
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [messages, setMessages] = useState<Message[]>([])
@@ -29,63 +35,65 @@ export default function LiveDialogsPage() {
   const [status, setStatus] = useState('')
 
   const loadConversations = useCallback(async () => {
-    if (!tenantId) return
-    const res = await fetch(`/api/runtime?resource=conversations&tenantId=${tenantId}`, {
-      headers: { 'x-tenant-id': tenantId },
+    if (!companyId) return
+    const res = await fetch(`/api/runtime?resource=conversations&tenantId=${companyId}`, {
+      headers: { 'x-tenant-id': companyId },
     })
     const data = await res.json()
     if (res.ok) setConversations(data)
-    else setStatus(JSON.stringify(data))
-  }, [tenantId])
+    else setStatus(data.error || 'Сервер переписки ещё не подключён')
+  }, [companyId])
 
-  const loadMessages = useCallback(async (id: string) => {
-    if (!tenantId) return
-    const res = await fetch(
-      `/api/runtime?resource=messages&tenantId=${tenantId}&conversationId=${id}`,
-      { headers: { 'x-tenant-id': tenantId } },
-    )
-    const data = await res.json()
-    if (res.ok) setMessages(data)
-  }, [tenantId])
+  const loadMessages = useCallback(
+    async (id: string) => {
+      if (!companyId) return
+      const res = await fetch(
+        `/api/runtime?resource=messages&tenantId=${companyId}&conversationId=${id}`,
+        { headers: { 'x-tenant-id': companyId } },
+      )
+      const data = await res.json()
+      if (res.ok) setMessages(data)
+    },
+    [companyId],
+  )
 
   useEffect(() => {
-    if (!tenantId) return
+    if (!companyId) return
     loadConversations()
     const wsBase = process.env.NEXT_PUBLIC_API_WS || 'ws://localhost:8000'
     const token = process.env.NEXT_PUBLIC_SERVICE_TOKEN || 'dev-service-token-change-me'
-    const ws = new WebSocket(
-      `${wsBase}/ws/tenants/${tenantId}/conversations?token=${encodeURIComponent(token)}`,
-    )
-    ws.onmessage = (ev) => {
-      try {
-        const data = JSON.parse(ev.data)
-        setStatus(`event: ${data.type}`)
+    let ws: WebSocket | null = null
+    try {
+      ws = new WebSocket(
+        `${wsBase}/ws/tenants/${companyId}/conversations?token=${encodeURIComponent(token)}`,
+      )
+      ws.onmessage = () => {
         loadConversations()
-        if (selected && data.conversation_id === selected) loadMessages(selected)
-      } catch {
-        /* ignore */
+        if (selected) loadMessages(selected)
       }
+    } catch {
+      /* runtime may be offline */
     }
     const t = setInterval(loadConversations, 15000)
     return () => {
-      ws.close()
+      ws?.close()
       clearInterval(t)
     }
-  }, [tenantId, selected, loadConversations, loadMessages])
+  }, [companyId, selected, loadConversations, loadMessages])
 
   useEffect(() => {
     if (selected) loadMessages(selected)
   }, [selected, loadMessages])
 
   async function act(action: string, extra: Record<string, unknown> = {}) {
-    if (!tenantId || !selected) return
+    if (!companyId || !selected) return
     const res = await fetch('/api/runtime', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-tenant-id': tenantId },
-      body: JSON.stringify({ action, tenantId, conversationId: selected, ...extra }),
+      headers: { 'Content-Type': 'application/json', 'x-tenant-id': companyId },
+      body: JSON.stringify({ action, tenantId: companyId, conversationId: selected, ...extra }),
     })
     const data = await res.json()
-    setStatus(JSON.stringify(data))
+    setStatus(res.ok ? 'Готово' : data.error || 'Ошибка')
     await loadConversations()
     await loadMessages(selected)
   }
@@ -96,88 +104,104 @@ export default function LiveDialogsPage() {
   )
 
   return (
-    <div className="panel" style={{ maxWidth: 1100 }}>
-      <p>
-        <Link href="/admin">← Admin</Link>
-      </p>
-      <h1>Live-диалоги</h1>
-      <div className="row">
-        <input
-          placeholder="Payload Tenant ID (напр. 1)"
-          value={tenantId}
-          onChange={(e) => setTenantId(e.target.value)}
-          style={{ minWidth: 320 }}
-        />
-        <button type="button" className="secondary" onClick={loadConversations}>
-          Обновить
-        </button>
-      </div>
-      <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: 16 }}>
-        <div>
-          {conversations.map((c) => (
-            <button
-              key={c.id}
-              type="button"
-              className="card"
-              style={{
-                width: '100%',
-                textAlign: 'left',
-                background: selected === c.id ? '#111' : '#fff',
-                color: selected === c.id ? '#fff' : '#111',
-              }}
-              onClick={() => setSelected(c.id)}
-            >
-              <div className="badge">{c.state}</div>
-              <div style={{ fontSize: 12, marginTop: 6 }}>{c.id.slice(0, 8)}…</div>
-              <div style={{ fontSize: 12 }}>step: {c.current_step}</div>
-            </button>
-          ))}
+    <div className="shell">
+      <header className="topbar">
+        <Link href="/" className="brand">
+          Диалоги
+        </Link>
+        <Link href="/admin" className="btn btn-ghost">
+          В кабинет
+        </Link>
+      </header>
+
+      <div className="panel">
+        <h1>Живые диалоги</h1>
+        <p className="lead">Смотрите переписку в реальном времени и при необходимости отвечайте сами.</p>
+
+        <div className="row">
+          <input
+            placeholder="ID компании"
+            value={companyId}
+            onChange={(e) => setCompanyId(e.target.value)}
+            style={{ minWidth: 280 }}
+          />
+          <button type="button" className="btn btn-ghost" onClick={loadConversations}>
+            Обновить
+          </button>
         </div>
-        <div>
-          {selectedConv ? (
-            <>
-              <div className="row">
-                <span className="badge">{selectedConv.state}</span>
-                <button type="button" onClick={() => act('handoff')}>
-                  Handoff
-                </button>
-                <button type="button" className="secondary" onClick={() => act('resume_bot')}>
-                  Вернуть боту
-                </button>
-              </div>
-              <div className="messages">
-                {messages.map((m) => (
-                  <div key={m.id} className={m.direction === 'in' ? 'msg-in' : 'msg-out'}>
-                    <small>
-                      {m.source} · {m.direction}
-                    </small>
-                    <div>{m.text}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="row" style={{ marginTop: 12 }}>
-                <textarea
-                  rows={2}
-                  style={{ flex: 1 }}
-                  value={reply}
-                  onChange={(e) => setReply(e.target.value)}
-                  placeholder="Сообщение оператора"
-                />
-                <button
-                  type="button"
-                  onClick={() => {
-                    act('operator_message', { text: reply })
-                    setReply('')
-                  }}
-                >
-                  Отправить
-                </button>
-              </div>
-            </>
-          ) : (
-            <p>Выберите диалог</p>
-          )}
-          <pre style={{ marginTop: 12 }}>{status}</pre>
+        {status ? <div className="muted">{status}</div> : null}
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(240px, 300px) 1fr', gap: 16 }}>
+          <div>
+            {conversations.map((c) => (
+              <button
+                key={c.id}
+                type="button"
+                className="card"
+                style={{
+                  width: '100%',
+                  textAlign: 'left',
+                  cursor: 'pointer',
+                  borderColor: selected === c.id ? 'var(--accent)' : undefined,
+                  background: selected === c.id ? 'var(--accent-soft)' : undefined,
+                }}
+                onClick={() => setSelected(c.id)}
+              >
+                <span className="badge">{stateLabel[c.state] || c.state}</span>
+                <div className="muted" style={{ marginTop: 8 }}>
+                  Этап: {c.current_step}
+                </div>
+              </button>
+            ))}
+            {!conversations.length ? <p className="muted">Пока нет диалогов</p> : null}
+          </div>
+
+          <div>
+            {selectedConv ? (
+              <>
+                <div className="row">
+                  <span className="badge">{stateLabel[selectedConv.state] || selectedConv.state}</span>
+                  <button type="button" className="btn btn-primary" onClick={() => act('handoff')}>
+                    Взять себе
+                  </button>
+                  <button type="button" className="btn btn-ghost" onClick={() => act('resume_bot')}>
+                    Вернуть помощнику
+                  </button>
+                </div>
+                <div className="messages">
+                  {messages.map((m) => (
+                    <div key={m.id} className={m.direction === 'in' ? 'msg-in' : 'msg-out'}>
+                      <small className="muted">
+                        {m.direction === 'in' ? 'Клиент' : m.source === 'operator' ? 'Вы' : 'Помощник'}
+                      </small>
+                      <div>{m.text}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="row" style={{ marginTop: 12 }}>
+                  <textarea
+                    rows={2}
+                    style={{ flex: 1 }}
+                    value={reply}
+                    onChange={(e) => setReply(e.target.value)}
+                    placeholder="Ваш ответ клиенту"
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => {
+                      act('operator_message', { text: reply })
+                      setReply('')
+                    }}
+                  >
+                    Отправить
+                  </button>
+                </div>
+              </>
+            ) : (
+              <p className="muted">Выберите диалог слева</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
