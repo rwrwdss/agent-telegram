@@ -1,0 +1,36 @@
+{
+  "name": "agent-cms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "cross-env NODE_OPTIONS=--no-deprecation next dev",
+    "build": "cross-env NODE_OPTIONS=--no-deprecation next build",
+    "start": "cross-env NODE_OPTIONS=--no-deprecation next start",
+    "payload": "cross-env NODE_OPTIONS=--no-deprecation payload",
+    "generate:types": "payload generate:types"
+  },
+  "dependencies": {
+    "@payloadcms/db-postgres": "^3.49.0",
+    "@payloadcms/next": "^3.49.0",
+    "@payloadcms/richtext-lexical": "^3.49.0",
+    "@payloadcms/ui": "^3.49.0",
+    "cross-env": "^7.0.3",
+    "graphql": "^16.10.0",
+    "next": "15.4.11",
+    "payload": "^3.49.0",
+    "react": "19.1.2",
+    "react-dom": "19.1.2",
+    "sharp": "^0.33.5"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "typescript": "^5.7.2"
+  },
+  "overrides": {
+    "react": "19.1.2",
+    "react-dom": "19.1.2"
+  }
+}

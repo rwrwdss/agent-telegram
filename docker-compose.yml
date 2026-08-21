@@ -1,0 +1,105 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-agent}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agent}
+      POSTGRES_DB: ${POSTGRES_DB:-agent}
+    ports:
+      - "5434:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-agent}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://agent:agent@postgres:5432/agent
+      REDIS_URL: redis://redis:6379/0
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./apps/api:/app/apps/api
+      - ./apps/runner:/app/apps/runner
+      - ./apps/gateway:/app/apps/gateway
+      - ./packages/shared:/app/packages/shared
+
+  runner:
+    build:
+      context: .
+      dockerfile: apps/runner/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://agent:agent@postgres:5432/agent
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./apps/api:/app/apps/api
+      - ./apps/runner:/app/apps/runner
+      - ./packages/shared:/app/packages/shared
+
+  gateway:
+    build:
+      context: .
+      dockerfile: apps/gateway/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql+asyncpg://agent:agent@postgres:5432/agent
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./apps/api:/app/apps/api
+      - ./apps/gateway:/app/apps/gateway
+      - ./packages/shared:/app/packages/shared
+
+  cms:
+    build:
+      context: .
+      dockerfile: apps/cms/Dockerfile
+    env_file: .env
+    environment:
+      DATABASE_URI: postgresql://agent:agent@postgres:5432/agent
+      PAYLOAD_SECRET: ${PAYLOAD_SECRET:-change-me-to-a-long-random-string}
+      NEXT_PUBLIC_SERVER_URL: http://localhost:3000
+      API_URL: http://api:8000
+      SERVICE_TOKEN: ${SERVICE_TOKEN:-dev-service-token-change-me}
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      api:
+        condition: service_started
+
+volumes:
+  pgdata:
