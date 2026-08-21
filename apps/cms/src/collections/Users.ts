@@ -25,7 +25,6 @@ export const Users: CollectionConfig = {
       if (user.role === 'superadmin') return true
       const companyId = companyIdOf(user)
       if (companyId == null || Number.isNaN(Number(companyId))) {
-        // Видит только себя, если компания ещё не привязана
         return { id: { equals: user.id } }
       }
       return { tenant: { equals: companyId } }
