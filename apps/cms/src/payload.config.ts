@@ -11,6 +11,7 @@ import { Scripts } from './collections/Scripts'
 import { TelegramAccounts } from './collections/TelegramAccounts'
 import { Tenants } from './collections/Tenants'
 import { Users } from './collections/Users'
+import { migrations } from './migrations'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -39,8 +40,8 @@ export default buildConfig({
       connectionString:
         process.env.DATABASE_URI || 'postgresql://agent:agent@localhost:5432/agent',
     },
-    // Push schema on boot so empty managed DBs (Vercel/Neon/Prisma) get tables
-    push: true,
+    prodMigrations: migrations,
+    push: false,
   }),
   sharp,
 })
