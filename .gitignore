@@ -21,3 +21,7 @@ coverage/
 apps/cms/.next/
 apps/api/.venv/
 apps/cms/tsconfig.tsbuildinfo
+.vercel
+.env*
+.vercel
+.env.local
