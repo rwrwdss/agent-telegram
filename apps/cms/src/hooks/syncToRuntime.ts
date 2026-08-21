@@ -41,8 +41,11 @@ export function syncToRuntime(entity: string): CollectionAfterChangeHook {
     }
 
     try {
+      const ctrl = new AbortController()
+      const timer = setTimeout(() => ctrl.abort(), 2500)
       const res = await fetch(`${API_URL}/sync`, {
         method: 'POST',
+        signal: ctrl.signal,
         headers: {
           'Content-Type': 'application/json',
           'X-Service-Token': SERVICE_TOKEN,
@@ -54,6 +57,7 @@ export function syncToRuntime(entity: string): CollectionAfterChangeHook {
           data,
         }),
       })
+      clearTimeout(timer)
       if (res.ok) {
         const json = (await res.json()) as { id?: string }
         if (json.id && json.id !== doc.runtimeId) {
@@ -66,11 +70,9 @@ export function syncToRuntime(entity: string): CollectionAfterChangeHook {
             context: { skipSync: true },
           })
         }
-      } else {
-        req.payload.logger.error(`Runtime sync failed: ${res.status} ${await res.text()}`)
       }
-    } catch (e) {
-      req.payload.logger.error(`Runtime sync error: ${String(e)}`)
+    } catch {
+      // Движок переписки ещё не поднят — кабинет должен работать сам
     }
     return doc
   }

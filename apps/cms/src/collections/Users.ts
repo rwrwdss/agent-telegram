@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { companyIdOf } from '../access/tenant'
 
 export const Users: CollectionConfig = {
   slug: 'users',
@@ -22,11 +23,15 @@ export const Users: CollectionConfig = {
     read: ({ req: { user } }) => {
       if (!user) return false
       if (user.role === 'superadmin') return true
-      return { tenant: { equals: user.tenant } }
+      const companyId = companyIdOf(user)
+      if (companyId == null || Number.isNaN(Number(companyId))) {
+        // Видит только себя, если компания ещё не привязана
+        return { id: { equals: user.id } }
+      }
+      return { tenant: { equals: companyId } }
     },
     create: async ({ req }) => {
       if (req.user) return req.user.role === 'superadmin' || req.user.role === 'admin'
-      // Первый пользователь платформы (пустая база)
       const existing = await req.payload.find({
         collection: 'users',
         limit: 0,
@@ -37,7 +42,11 @@ export const Users: CollectionConfig = {
     update: ({ req: { user } }) => {
       if (!user) return false
       if (user.role === 'superadmin') return true
-      return { tenant: { equals: user.tenant } }
+      const companyId = companyIdOf(user)
+      if (companyId == null || Number.isNaN(Number(companyId))) {
+        return { id: { equals: user.id } }
+      }
+      return { tenant: { equals: companyId } }
     },
     delete: ({ req: { user } }) => Boolean(user && user.role === 'superadmin'),
   },

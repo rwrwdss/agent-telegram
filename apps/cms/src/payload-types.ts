@@ -126,12 +126,20 @@ export interface UserAuthOperations {
   };
 }
 /**
+ * Люди, которые заходят в кабинет: владелец, менеджер или оператор.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "users".
  */
 export interface User {
   id: number;
+  /**
+   * Владелец компании настраивает всё. Оператор только ведёт переписку.
+   */
   role: 'superadmin' | 'admin' | 'operator';
+  /**
+   * К какой компании относится сотрудник
+   */
   tenant?: (number | null) | Tenant;
   updatedAt: string;
   createdAt: string;
@@ -153,13 +161,21 @@ export interface User {
   collection: 'users';
 }
 /**
+ * Ваш бизнес-аккаунт. Все сотрудники и переписки принадлежат компании.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "tenants".
  */
 export interface Tenant {
   id: number;
+  /**
+   * Как компания будет отображаться в системе
+   */
   name: string;
   plan?: ('starter' | 'pro' | 'enterprise') | null;
+  /**
+   * Ограничения: сколько помощников и Telegram-аккаунтов можно подключить
+   */
   limits?:
     | {
         [k: string]: unknown;
@@ -173,19 +189,30 @@ export interface Tenant {
   createdAt: string;
 }
 /**
+ * Обычные номера Telegram, от которых помощники пишут клиентам.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "telegram-accounts".
  */
 export interface TelegramAccount {
   id: number;
   tenant: number | Tenant;
+  /**
+   * В формате +79001234567
+   */
   phone: string;
   status?: ('pending' | 'warmup' | 'active' | 'limited' | 'banned') | null;
+  /**
+   * Сколько исходящих сообщений можно отправить за сутки
+   */
   dailyLimit?: number | null;
   sentToday?: number | null;
+  /**
+   * Новые номера начинают с малого лимита, чтобы Telegram не заблокировал
+   */
   warmupStage?: number | null;
   /**
-   * UUID in FastAPI DB after sync
+   * Служебное поле — понадобится при подключении номера
    */
   runtimeId?: string | null;
   hasSession?: boolean | null;
@@ -193,15 +220,29 @@ export interface TelegramAccount {
   createdAt: string;
 }
 /**
+ * Как помощник ведёт беседу: приветствие, вопросы, предложение, закрытие.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "scripts".
  */
 export interface Script {
   id: number;
   tenant: number | Tenant;
+  /**
+   * Например: «Продажа курса» или «Запись на консультацию»
+   */
   name: string;
+  /**
+   * Меняйте при тестах разных формулировок (1, 2, A, B…)
+   */
   version: string;
+  /**
+   * Общие правила тона и поведения на весь диалог
+   */
   systemPrompt: string;
+  /**
+   * Пошаговый план: что говорить на каждом этапе и куда переходить дальше
+   */
   steps:
     | {
         [k: string]: unknown;
@@ -211,6 +252,9 @@ export interface Script {
     | number
     | boolean
     | null;
+  /**
+   * Обычно: передать диалог живому сотруднику
+   */
   fallbackRules?:
     | {
         [k: string]: unknown;
@@ -225,16 +269,30 @@ export interface Script {
   createdAt: string;
 }
 /**
+ * Виртуальный менеджер: номер Telegram + сценарий разговора + ИИ.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "agents".
  */
 export interface Agent {
   id: number;
   tenant: number | Tenant;
+  /**
+   * Как вы его назовёте внутри кабинета
+   */
   name: string;
+  /**
+   * С какого номера он будет писать
+   */
   telegramAccount: number | TelegramAccount;
   script: number | Script;
+  /**
+   * Какой ИИ отвечает за тексты сообщений
+   */
   llmModel?: string | null;
+  /**
+   * 0 — строже по сценарию, ближе к 1 — свободнее формулировки
+   */
   temperature?: number | null;
   status?: ('active' | 'paused') | null;
   runtimeId?: string | null;
@@ -242,16 +300,30 @@ export interface Agent {
   createdAt: string;
 }
 /**
+ * Люди, которым помощник пишет в Telegram.
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "leads".
  */
 export interface Lead {
   id: number;
   tenant: number | Tenant;
+  /**
+   * Без @, например: ivan_petrov
+   */
   telegramUsername?: string | null;
+  /**
+   * Если известен числовой ID — надёжнее ника
+   */
   telegramId?: number | null;
+  /**
+   * Реклама, база, ручной ввод…
+   */
   source?: string | null;
   status?: ('new' | 'in_progress' | 'converted' | 'closed') | null;
+  /**
+   * Любые поля: город, продукт, комментарий
+   */
   customFields?:
     | {
         [k: string]: unknown;

@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+import { companyIdOf } from '../access/tenant'
 
 export const Tenants: CollectionConfig = {
   slug: 'tenants',
@@ -16,13 +17,17 @@ export const Tenants: CollectionConfig = {
     read: ({ req: { user } }) => {
       if (!user) return false
       if (user.role === 'superadmin') return true
-      return { id: { equals: user.tenant } }
+      const companyId = companyIdOf(user)
+      if (companyId == null || Number.isNaN(Number(companyId))) return false
+      return { id: { equals: companyId } }
     },
     create: ({ req: { user } }) => Boolean(user && user.role === 'superadmin'),
     update: ({ req: { user } }) => {
       if (!user) return false
       if (user.role === 'superadmin') return true
-      return { id: { equals: user.tenant } }
+      const companyId = companyIdOf(user)
+      if (companyId == null || Number.isNaN(Number(companyId))) return false
+      return { id: { equals: companyId } }
     },
     delete: ({ req: { user } }) => Boolean(user && user.role === 'superadmin'),
   },
@@ -33,8 +38,11 @@ export const Tenants: CollectionConfig = {
         const API_URL = process.env.API_URL || 'http://localhost:8000'
         const SERVICE_TOKEN = process.env.SERVICE_TOKEN || 'dev-service-token-change-me'
         try {
+          const ctrl = new AbortController()
+          const t = setTimeout(() => ctrl.abort(), 2500)
           await fetch(`${API_URL}/sync`, {
             method: 'POST',
+            signal: ctrl.signal,
             headers: {
               'Content-Type': 'application/json',
               'X-Service-Token': SERVICE_TOKEN,
@@ -46,8 +54,9 @@ export const Tenants: CollectionConfig = {
               data: { id: doc.id, name: doc.name, plan: doc.plan, limits: doc.limits },
             }),
           })
-        } catch (e) {
-          req.payload.logger.error(`Tenant sync error: ${String(e)}`)
+          clearTimeout(t)
+        } catch {
+          // Движок переписки может быть ещё не поднят — кабинет работает без него
         }
         return doc
       },
