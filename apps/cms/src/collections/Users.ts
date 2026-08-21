@@ -2,7 +2,12 @@ import type { CollectionConfig } from 'payload'
 
 export const Users: CollectionConfig = {
   slug: 'users',
-  auth: true,
+  auth: {
+    cookies: {
+      sameSite: 'Lax',
+      secure: process.env.NODE_ENV === 'production',
+    },
+  },
   admin: {
     useAsTitle: 'email',
   },
@@ -12,7 +17,11 @@ export const Users: CollectionConfig = {
       if (user.role === 'superadmin') return true
       return { tenant: { equals: user.tenant } }
     },
-    create: ({ req: { user } }) => Boolean(user && (user.role === 'superadmin' || user.role === 'admin')),
+    // Allow unauthenticated create so /admin/create-first-user works on empty DB
+    create: ({ req: { user } }) => {
+      if (!user) return true
+      return user.role === 'superadmin' || user.role === 'admin'
+    },
     update: ({ req: { user } }) => {
       if (!user) return false
       if (user.role === 'superadmin') return true

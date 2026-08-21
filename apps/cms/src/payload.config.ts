@@ -15,7 +15,10 @@ import { Users } from './collections/Users'
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
+const serverURL = process.env.NEXT_PUBLIC_SERVER_URL || process.env.PAYLOAD_PUBLIC_SERVER_URL || ''
+
 export default buildConfig({
+  serverURL,
   admin: {
     user: Users.slug,
     importMap: {
@@ -36,7 +39,8 @@ export default buildConfig({
       connectionString:
         process.env.DATABASE_URI || 'postgresql://agent:agent@localhost:5432/agent',
     },
-    // Payload tables use payload_ prefix conceptually via separate schema push
+    // Push schema on boot so empty managed DBs (Vercel/Neon/Prisma) get tables
+    push: true,
   }),
   sharp,
 })
