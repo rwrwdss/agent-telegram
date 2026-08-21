@@ -25,3 +25,5 @@ apps/cms/tsconfig.tsbuildinfo
 .env*
 .vercel
 .env.local
+.env.production.local
+.env*.local
