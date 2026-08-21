@@ -1,4 +1,4 @@
-import type { CollectionConfig } from 'payload'
+import type { Access, CollectionConfig } from 'payload'
 import { companyIdOf } from '../access/tenant'
 
 export const Users: CollectionConfig = {
@@ -20,7 +20,7 @@ export const Users: CollectionConfig = {
     defaultColumns: ['email', 'role', 'tenant', 'updatedAt'],
   },
   access: {
-    read: ({ req: { user } }) => {
+    read: (({ req: { user } }) => {
       if (!user) return false
       if (user.role === 'superadmin') return true
       const companyId = companyIdOf(user)
@@ -28,8 +28,8 @@ export const Users: CollectionConfig = {
         return { id: { equals: user.id } }
       }
       return { tenant: { equals: companyId } }
-    },
-    create: async ({ req }) => {
+    }) as Access,
+    create: (async ({ req }) => {
       if (req.user) return req.user.role === 'superadmin' || req.user.role === 'admin'
       const existing = await req.payload.find({
         collection: 'users',
@@ -37,8 +37,8 @@ export const Users: CollectionConfig = {
         overrideAccess: true,
       })
       return existing.totalDocs === 0
-    },
-    update: ({ req: { user } }) => {
+    }) as Access,
+    update: (({ req: { user } }) => {
       if (!user) return false
       if (user.role === 'superadmin') return true
       const companyId = companyIdOf(user)
@@ -46,8 +46,8 @@ export const Users: CollectionConfig = {
         return { id: { equals: user.id } }
       }
       return { tenant: { equals: companyId } }
-    },
-    delete: ({ req: { user } }) => Boolean(user && user.role === 'superadmin'),
+    }) as Access,
+    delete: (({ req: { user } }) => Boolean(user && user.role === 'superadmin')) as Access,
   },
   fields: [
     {
